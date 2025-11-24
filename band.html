@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free AI IELTS Writing Checker</title>
+    <!-- Load Tailwind CSS for instant, responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use the Inter font -->
+    <style>
+        @import url('https://fonts.fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center py-6 bg-white shadow-md rounded-xl mb-8">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-indigo-700">IELTS Writing Score Predictor</h1>
+            <p class="mt-2 text-gray-500">Get instant band scores and detailed feedback for Task 1 & 2 essays, powered by Gemini.</p>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="space-y-8">
+            
+            <!-- Task Selection Tabs -->
+            <div class="flex border-b border-gray-200">
+                <button id="tab-task1" class="tab-button flex-1 py-3 text-lg font-medium text-center transition duration-200 border-b-4 border-indigo-600 text-indigo-600 bg-white" data-task="task1">
+                    Task 1 (Report/Letter)
+                </button>
+                <button id="tab-task2" class="tab-button flex-1 py-3 text-lg font-medium text-center transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-indigo-600 hover:border-indigo-300" data-task="task2">
+                    Task 2 (Essay)
+                </button>
+            </div>
+
+            <!-- Input Form -->
+            <div id="input-container" class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+                
+                <!-- Task Prompt Input -->
+                <div>
+                    <label for="prompt-input" class="block text-sm font-medium text-gray-700 mb-2">
+                        IELTS Prompt/Question (MANDATORY)
+                    </label>
+                    <textarea id="prompt-input" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none" placeholder="Paste the full IELTS question/prompt here. E.g., 'The chart below shows...' or 'Some people believe...'"></textarea>
+                </div>
+                
+                <!-- Student Answer Input -->
+                <div>
+                    <label for="writing-input" class="block text-sm font-medium text-gray-700 mb-2">
+                        Your Written Answer (<span id="word-count">0</span> words)
+                    </label>
+                    <textarea id="writing-input" rows="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Paste your Task 1 (min 150 words) or Task 2 (min 250 words) writing here..."></textarea>
+                    <p id="word-count-warning" class="text-sm mt-1 text-red-500 hidden">Warning: Word count is too low for this task type.</p>
+                </div>
+                
+                <!-- Submit Button -->
+                <!-- The analyzeWriting function is now available globally via window.analyzeWriting -->
+                <button id="submit-button" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center justify-center" onclick="analyzeWriting()">
+                    <svg id="submit-icon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span id="submit-text">Get Instant Band Score & Feedback</span>
+                </button>
+                
+                <!-- Loading Indicator -->
+                <div id="loading-spinner" class="hidden text-center py-4">
+                    <div class="animate-spin inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
+                    <p class="mt-2 text-indigo-600">Analyzing your writing... Please wait, this may take a moment.</p>
+                </div>
+                
+                <!-- Error Message -->
+                <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <strong class="font-bold">Error:</strong>
+                    <span id="error-text" class="block sm:inline"></span>
+                </div>
+            </div>
+
+            <!-- Results Display Area -->
+            <div id="results-area" class="hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Evaluation Results for <span id="result-task-type" class="text-indigo-600"></span></h2>
+                
+                <!-- Overall Score & Criteria Scores -->
+                <div class="grid md:grid-cols-5 gap-4 mb-8">
+                    <!-- Overall Score Card -->
+                    <div class="col-span-2 bg-indigo-500 text-white p-6 rounded-xl shadow-xl flex flex-col justify-center items-center">
+                        <p class="text-sm font-medium opacity-80">Overall Estimated Band Score</p>
+                        <p id="overall-score" class="text-6xl font-extrabold mt-1"></p>
+                    </div>
+
+                    <!-- Criteria Score Cards -->
+                    <div class="col-span-3 grid grid-cols-2 gap-4">
+                        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                            <p class="text-sm text-gray-500">Task Response/Achievement</p>
+                            <p id="score-tr" class="text-3xl font-bold text-indigo-700 mt-1"></p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                            <p class="text-sm text-gray-500">Coherence & Cohesion</p>
+                            <p id="score-cc" class="text-3xl font-bold text-indigo-700 mt-1"></p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                            <p class="text-sm text-gray-500">Lexical Resource</p>
+                            <p id="score-lr" class="text-3xl font-bold text-indigo-700 mt-1"></p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                            <p class="text-sm text-gray-500">Grammatical Range & Accuracy</p>
+                            <p id="score-gra" class="text-3xl font-bold text-indigo-700 mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Feedback and Mistakes -->
+                <div class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+                    <!-- Feedback to Elevate Score -->
+                    <div class="border-l-4 border-green-500 pl-4 py-2">
+                        <h3 class="text-xl font-semibold text-green-700">Detailed Feedback to Elevate Score</h3>
+                        <p id="detailed-feedback" class="mt-2 text-gray-700 whitespace-pre-wrap"></p>
+                    </div>
+                    
+                    <!-- Mistakes List -->
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">Key Mistakes & Suggested Improvements</h3>
+                        <ul id="mistakes-list" class="space-y-3">
+                            <!-- Mistakes will be injected here -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- JavaScript for Logic -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for the application state
+        let currentTaskType = 'task1'; // 'task1' or 'task2'
+        const MIN_WORDS_T1 = 150;
+        const MIN_WORDS_T2 = 250;
+        
+        // Firebase global instances
+        let db = null;
+        let auth = null;
+        let userId = null;
+        let isAuthReady = false;
+        let DATA_DOC_REF = null;
+
+        // Configuration and API endpoints
+        const apiKey = ""; 
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        const MAX_RETRIES = 5;
+
+        // --- Core Application Setup & Persistence ---
+
+        /**
+         * Initializes Firebase and sets up authentication.
+         */
+        async function initializeFirebase() {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            
+            // Fix: Ensure firebaseConfig is always a valid object, even if the environment variable is missing or malformed.
+            let firebaseConfig = {};
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                try {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                } catch (e) {
+                    console.error("Error parsing __firebase_config:", e);
+                }
+            }
+
+            // Fallback config if projectId is missing (though should be provided by environment)
+            if (!firebaseConfig.projectId) {
+                 console.warn("Firebase config missing. Using default placeholder config.");
+                 // Using a generic placeholder might prevent the uncaught error if the platform initializes the library but not the config.
+                 // In a real environment, this should always be provided.
+                 firebaseConfig = {
+                    apiKey: "AIzaSyCil_test_fallback",
+                    authDomain: "test-fallback.firebaseapp.com",
+                    projectId: "test-fallback",
+                    storageBucket: "test-fallback.appspot.com",
+                    messagingSenderId: "123456789",
+                    appId: "1:123456789:web:abcdef123456"
+                 };
+            }
+
+
+            if (!db) {
+                // Initialize Firebase App
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            }
+
+            // Authentication
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            
+            // Wait for auth state change to finalize user ID
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                } else {
+                    // Try to sign in using the provided token if available, otherwise sign in anonymously
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                            userId = auth.currentUser.uid;
+                        } else {
+                            const anonUserCredential = await signInAnonymously(auth);
+                            userId = anonUserCredential.user.uid;
+                        }
+                    } catch (error) {
+                        console.error("Firebase Auth Error during sign-in:", error);
+                        // Fallback to a random UUID if all sign-in fails
+                        userId = crypto.randomUUID();
+                    }
+                }
+                
+                isAuthReady = true;
+                // Define the Firestore document path for this user's data
+                const docPath = `/artifacts/${appId}/users/${userId}/ielts_app/data_document`;
+                DATA_DOC_REF = doc(db, docPath);
+                
+                console.log(`Authenticated. User ID: ${userId}`);
+                loadData();
+            });
+        }
+
+        /**
+         * Saves the current prompt and writing input to Firestore.
+         */
+        function saveData() {
+            if (!isAuthReady || !DATA_DOC_REF) return;
+
+            const promptInput = document.getElementById('prompt-input').value.trim();
+            const writingInput = document.getElementById('writing-input').value.trim();
+
+            setDoc(DATA_DOC_REF, {
+                prompt: promptInput,
+                writing: writingInput,
+                lastUpdated: new Date().toISOString()
+            }, { merge: true }).catch(error => {
+                console.error("Error saving data:", error);
+            });
+        }
+
+        /**
+         * Sets up a real-time listener to load data from Firestore on application start.
+         */
+        function loadData() {
+            if (!isAuthReady || !DATA_DOC_REF) return;
+
+            onSnapshot(DATA_DOC_REF, (docSnapshot) => {
+                if (docSnapshot.exists()) {
+                    const data = docSnapshot.data();
+                    const promptInput = document.getElementById('prompt-input');
+                    const writingInput = document.getElementById('writing-input');
+
+                    // Only update if the loaded data is different (prevents cursor jumping)
+                    if (promptInput.value !== data.prompt) {
+                        promptInput.value = data.prompt || '';
+                    }
+                    if (writingInput.value !== data.writing) {
+                        writingInput.value = data.writing || '';
+                    }
+                    
+                    updateWordCount();
+                }
+            }, (error) => {
+                console.error("Error setting up data listener:", error);
+            });
+        }
+
+
+        /**
+         * Initialize the application components and event listeners.
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFirebase();
+            
+            // Setup Tab Switching
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    switchTask(e.currentTarget.dataset.task);
+                });
+            });
+
+            // Setup Data Saving Listeners (on input, save to Firestore)
+            const promptInput = document.getElementById('prompt-input');
+            const writingInput = document.getElementById('writing-input');
+            
+            promptInput.addEventListener('input', () => {
+                saveData();
+                updateWordCount();
+            });
+            writingInput.addEventListener('input', () => {
+                saveData();
+                updateWordCount();
+            });
+
+            // Initial state setup (will be overwritten by loadData shortly)
+            switchTask('task1');
+        });
+
+        /**
+         * Switches the active task type (Task 1 or Task 2).
+         * @param {string} taskType - 'task1' or 'task2'.
+         */
+        function switchTask(taskType) {
+            currentTaskType = taskType;
+
+            // Reset tab styles
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('border-indigo-600', 'text-indigo-600', 'bg-white');
+                button.classList.add('border-transparent', 'text-gray-500', 'hover:text-indigo-600', 'hover:border-indigo-300');
+            });
+
+            // Set active tab style
+            const activeTab = document.getElementById(`tab-${taskType}`);
+            
+            if (activeTab) {
+                activeTab.classList.add('border-indigo-600', 'text-indigo-600', 'bg-white');
+                activeTab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-indigo-600', 'hover:border-indigo-300');
+            } else {
+                console.error(`Tab element not found for task type: ${taskType}`);
+            }
+
+            // Reset results and update word count check
+            const resultsArea = document.getElementById('results-area');
+            if (resultsArea) {
+                resultsArea.classList.add('hidden');
+            }
+            updateWordCount();
+        }
+
+        /**
+         * Updates the word count display and shows a warning if the count is too low.
+         */
+        function updateWordCount() {
+            const writingInput = document.getElementById('writing-input');
+            const text = writingInput.value.trim();
+            // Use a regex to accurately count words based on non-whitespace characters
+            const words = text ? text.match(/\b\w+\b/g) : [];
+            const count = words ? words.length : 0;
+            
+            document.getElementById('word-count').textContent = count;
+            const warningEl = document.getElementById('word-count-warning');
+            
+            const minWords = currentTaskType === 'task1' ? MIN_WORDS_T1 : MIN_WORDS_T2;
+
+            if (count > 0 && count < minWords) {
+                warningEl.textContent = `Warning: The minimum word count for ${currentTaskType === 'task1' ? 'Task 1 (Report/Letter)' : 'Task 2 (Essay)'} is ${minWords} words.`;
+                warningEl.classList.remove('hidden');
+            } else {
+                warningEl.classList.add('hidden');
+            }
+        }
+
+
+        // --- Gemini API & Scoring Logic ---
+
+        /**
+         * Defines the JSON structure for the AI's response (The Scoring Rubric).
+         * This forces the LLM to provide parsable, structured data.
+         */
+        const SCORING_SCHEMA = {
+            type: "OBJECT",
+            properties: {
+                overallBandScore: {
+                    type: "STRING",
+                    description: "The final estimated overall IELTS Band Score (e.g., '7.5', '6.0'). Must be a score from 0.0 to 9.0 in half-point increments."
+                },
+                taskType: {
+                    type: "STRING",
+                    description: "The type of task evaluated: 'Task 1 (Report/Letter)' or 'Task 2 (Essay)'."
+                },
+                taskCriteriaScores: {
+                    type: "OBJECT",
+                    properties: {
+                        TaskAchievementOrResponse: { type: "STRING", description: "Band Score for Task Achievement (Task 1) or Task Response (Task 2)." },
+                        CoherenceAndCohesion: { type: "STRING", description: "Band Score for Coherence and Cohesion." },
+                        LexicalResource: { type: "STRING", description: "Band Score for Lexical Resource (Vocabulary)." },
+                        GrammaticalRangeAndAccuracy: { type: "STRING", description: "Band Score for Grammatical Range and Accuracy." }
+                    },
+                    propertyOrdering: ["TaskAchievementOrResponse", "CoherenceAndCohesion", "LexicalResource", "GrammaticalRangeAndAccuracy"]
+                },
+                keyMistakesAndCorrections: {
+                    type: "ARRAY",
+                    description: "A list of 5-10 specific errors found in the text with concise suggestions for correction or improvement.",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            mistake: { type: "STRING", description: "A sentence or phrase describing the mistake (e.g., 'Incorrect use of passive voice here.')." },
+                            correction: { type: "STRING", description: "A short, actionable correction or suggestion." }
+                        },
+                        propertyOrdering: ["mistake", "correction"]
+                    }
+                },
+                detailedFeedbackToElevateScore: {
+                    type: "STRING",
+                    description: "A single, well-structured paragraph providing high-level advice on what the student needs to do to reach the next half-band score (e.g., 'To reach band 8, you must integrate more complex, theme-specific vocabulary and increase the variety of subordinate clauses.')."
+                }
+            },
+            required: ["overallBandScore", "taskType", "taskCriteriaScores", "keyMistakesAndCorrections", "detailedFeedbackToElevateScore"]
+        };
+
+
+        /**
+         * Main function to start the writing analysis process.
+         * FIX: Making this function global for the inline onclick handler to access.
+         */
+        window.analyzeWriting = async function() {
+            const promptInput = document.getElementById('prompt-input').value.trim();
+            const writingInput = document.getElementById('writing-input').value.trim();
+            
+            // UI state management
+            hideElements(['error-message', 'results-area']);
+            setLoading(true);
+
+            if (!promptInput || !writingInput) {
+                showError("Please provide both the IELTS Prompt/Question and your written answer.");
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const results = await callGeminiAPI(promptInput, writingInput);
+                if (results) {
+                    displayResults(results);
+                }
+            } catch (error) {
+                console.error("Analysis failed:", error);
+                showError("Analysis failed due to a network or AI processing error. Please try again. Check the console for details.");
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        /**
+         * Calls the Gemini API with the necessary prompt and schema.
+         * Implements exponential backoff for resilience.
+         * @param {string} prompt - The IELTS question/prompt.
+         * @param {string} essay - The student's written response.
+         * @returns {Promise<Object|null>} The parsed JSON result or null on failure.
+         */
+        async function callGeminiAPI(prompt, essay) {
+            const taskName = currentTaskType === 'task1' ? 'IELTS ACADEMIC WRITING TASK 1 (Report/Process/Diagram)' : 'IELTS WRITING TASK 2 (Essay)';
+            
+            // Detailed System Instruction for the AI Examiner
+            const systemPrompt = `You are a highly experienced, certified IELTS examiner. Your task is to evaluate a piece of student writing strictly according to the official IELTS Band Descriptors.
+            The task type is: ${taskName}.
+            
+            1. **Scoring:** Assign a band score (0-9, in half-points) for the four criteria: Task Response/Achievement, Coherence and Cohesion, Lexical Resource, and Grammatical Range and Accuracy. The overall band score must be the average of the four scores, rounded to the nearest half-point.
+            2. **Mistakes:** Identify and list 5-10 specific, significant mistakes (grammar, vocabulary, structure) and provide an immediate correction/suggestion.
+            3. **Feedback:** Write one detailed paragraph explaining *exactly* what the student must focus on to achieve the next half or full band score (e.g., moving from 6.0 to 6.5 or 7.0).
+
+            Your response MUST be a valid JSON object matching the provided schema. DO NOT include any explanatory text outside the JSON object.`;
+
+            // User Query
+            const userQuery = `IELTS Prompt/Question:
+            ---
+            ${prompt}
+            ---
+            Student Writing (Task: ${taskName}):
+            ---
+            ${essay}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: SCORING_SCHEMA
+                },
+            };
+
+            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && attempt < MAX_RETRIES - 1) {
+                            // Rate limit encountered, wait using exponential backoff
+                            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        const errorBody = await response.text();
+                        throw new Error(`API returned status ${response.status}: ${errorBody}`);
+                    }
+
+                    const result = await response.json();
+                    let jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (!jsonText) {
+                        throw new Error("API response was valid but contained no content.");
+                    }
+                    
+                    // FIX: Sanitize the JSON string by removing markdown fences (```json or ```)
+                    jsonText = jsonText.replace(/```json\s*|```\s*/g, '').trim();
+
+                    try {
+                        // The API returns the JSON as a string, so we must parse it
+                        return JSON.parse(jsonText);
+                    } catch (e) {
+                         console.error("Failed to parse AI response into JSON. Raw text:", jsonText, "Error:", e);
+                         throw new Error("Failed to parse AI response into expected format (JSON).");
+                    }
+
+                } catch (error) {
+                    if (attempt === MAX_RETRIES - 1) {
+                        throw error; // Throw error after final attempt
+                    }
+                    // Continue to next iteration for retry logic
+                }
+            }
+            return null; // Should not be reached if MAX_RETRIES > 0
+        }
+
+        /**
+         * Displays the structured results from the Gemini API call.
+         * @param {Object} data - The parsed JSON data from the API.
+         */
+        function displayResults(data) {
+            // 1. Update Overall Score Card
+            document.getElementById('overall-score').textContent = data.overallBandScore || 'N/A';
+            document.getElementById('result-task-type').textContent = data.taskType || 'Writing Task';
+
+            // 2. Update Criteria Scores
+            const scores = data.taskCriteriaScores || {};
+            document.getElementById('score-tr').textContent = scores.TaskAchievementOrResponse || '-';
+            document.getElementById('score-cc').textContent = scores.CoherenceAndCohesion || '-';
+            document.getElementById('score-lr').textContent = scores.LexicalResource || '-';
+            document.getElementById('score-gra').textContent = scores.GrammaticalRangeAndAccuracy || '-';
+
+            // 3. Update Detailed Feedback
+            document.getElementById('detailed-feedback').textContent = data.detailedFeedbackToElevateScore || 'No detailed feedback provided.';
+
+            // 4. Update Mistakes List
+            const mistakesList = document.getElementById('mistakes-list');
+            mistakesList.innerHTML = ''; // Clear previous list
+            
+            if (data.keyMistakesAndCorrections && data.keyMistakesAndCorrections.length > 0) {
+                data.keyMistakesAndCorrections.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.classList.add('p-3', 'bg-gray-50', 'rounded-lg', 'border-l-4', 'border-red-400');
+                    li.innerHTML = `
+                        <p class="font-medium text-gray-800">Mistake ${index + 1}: ${item.mistake}</p>
+                        <p class="text-sm text-red-600 mt-1">
+                            <span class="font-semibold">Correction/Tip:</span> ${item.correction}
+                        </p>
+                    `;
+                    mistakesList.appendChild(li);
+                });
+            } else {
+                mistakesList.innerHTML = '<li class="p-3 text-gray-500">No specific mistakes were highlighted. Great job!</li>';
+            }
+
+            // Show results area
+            document.getElementById('results-area').classList.remove('hidden');
+            document.getElementById('results-area').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // --- Utility Functions for UI State ---
+
+        /**
+         * Sets the loading state of the application.
+         * @param {boolean} isLoading - True to show spinner, false to show button.
+         */
+        function setLoading(isLoading) {
+            const button = document.getElementById('submit-button');
+            const buttonText = document.getElementById('submit-text');
+            const buttonIcon = document.getElementById('submit-icon');
+            const spinner = document.getElementById('loading-spinner');
+
+            if (isLoading) {
+                button.disabled = true;
+                buttonText.textContent = 'Analyzing...';
+                buttonIcon.classList.add('hidden');
+                spinner.classList.remove('hidden');
+                button.classList.add('opacity-70', 'cursor-not-allowed');
+            } else {
+                button.disabled = false;
+                buttonText.textContent = 'Get Instant Band Score & Feedback';
+                buttonIcon.classList.remove('hidden');
+                spinner.classList.add('hidden');
+                button.classList.remove('opacity-70', 'cursor-not-allowed');
+            }
+        }
+
+        /**
+         * Shows an error message in the UI.
+         * @param {string} message - The error text to display.
+         */
+        function showError(message) {
+            document.getElementById('error-text').textContent = message;
+            document.getElementById('error-message').classList.remove('hidden');
+        }
+
+        /**
+         * Hides an array of elements by their ID.
+         * @param {string[]} ids - Array of element IDs to hide.
+         */
+        function hideElements(ids) {
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+        }
+    </script>
+</body>
+</html>
