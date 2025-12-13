@@ -3,617 +3,521 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free AI IELTS Writing Checker</title>
-    <!-- Load Tailwind CSS for instant, responsive styling -->
+    <title>IELTS Writing Assistant (Manual)</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Use the Inter font -->
+    <script>
+        // Configure Tailwind to use the Inter font
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#007bff',
+                        'secondary': '#f8f9fa',
+                        'accent': '#ffc107',
+                        'danger': '#dc3545',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        @import url('https://fonts.fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb;
+        /* Custom scrollbar for textareas */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        textarea::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        /* Basic styling for the main container */
+        .container-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: #4b5563; /* gray-600 */
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+            margin-bottom: -1px;
+        }
+        .tab-button:hover {
+            color: #1f2937; /* gray-800 */
+        }
+        .tab-button.active {
+            color: #007bff; /* primary color */
+            border-bottom: 2px solid #007bff;
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="bg-gray-50 font-sans min-h-screen p-4 md:p-8">
 
-    <div class="max-w-4xl mx-auto">
-        <header class="text-center py-6 bg-white shadow-md rounded-xl mb-8">
-            <h1 class="text-3xl md:text-4xl font-extrabold text-indigo-700">IELTS Writing Score Predictor</h1>
-            <p class="mt-2 text-gray-500">Get instant band scores and detailed feedback for Task 1 & 2 essays, powered by Gemini.</p>
+    <div id="app" class="max-w-4xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">IELTS Writing Assistant (Manual Check)</h1>
+            <p class="text-lg text-gray-500 mt-1">Practice and get structured, fixed feedback on your Task 1 and Task 2 responses.</p>
         </header>
 
-        <!-- Main Content Area -->
-        <main class="space-y-8">
+        <!-- Tab Navigation -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button id="tab-1" onclick="switchTab('task1')" class="tab-button active">
+                Task 1 (Report/Letter)
+            </button>
+            <button id="tab-2" onclick="switchTab('task2')" class="tab-button">
+                Task 2 (Essay)
+            </button>
+        </div>
+
+        <!-- Task Content and Output Area -->
+        <div class="bg-white rounded-xl container-shadow p-6 mb-8">
             
-            <!-- Task Selection Tabs -->
-            <div class="flex border-b border-gray-200">
-                <button id="tab-task1" class="tab-button flex-1 py-3 text-lg font-medium text-center transition duration-200 border-b-4 border-indigo-600 text-indigo-600 bg-white" data-task="task1">
-                    Task 1 (Report/Letter)
-                </button>
-                <button id="tab-task2" class="tab-button flex-1 py-3 text-lg font-medium text-center transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-indigo-600 hover:border-indigo-300" data-task="task2">
-                    Task 2 (Essay)
-                </button>
+            <!-- Filter Area -->
+            <div id="filter-area" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div class="md:col-span-1">
+                    <label for="category-select" class="block text-xs font-medium text-gray-500 mb-1">1. Select Prompt Type</label>
+                    <select id="category-select" onchange="loadCategoryPrompts()" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition duration-150 shadow-sm text-sm">
+                        <!-- Options will be populated by JS -->
+                    </select>
+                </div>
+                <div class="md:col-span-1">
+                    <label for="prompt-select" class="block text-xs font-medium text-gray-500 mb-1">2. Select Prompt</label>
+                    <select id="prompt-select" onchange="loadSelectedPrompt()" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition duration-150 shadow-sm text-sm">
+                        <!-- Options will be populated by JS -->
+                    </select>
+                </div>
+                <div class="md:col-span-1 flex items-end">
+                    <button onclick="clearPrompt()" class="w-full py-2 px-4 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition duration-300 shadow-sm text-sm">
+                        Clear Prompt Box
+                    </button>
+                </div>
             </div>
 
-            <!-- Input Form -->
-            <div id="input-container" class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+            <!-- Input Area -->
+            <div id="input-area">
                 
-                <!-- Task Prompt Input -->
-                <div>
+                <!-- VISUALIZATION AREA for Task 1 -->
+                <div id="figure-visualization" class="mb-4 hidden">
+                    <h3 class="text-lg font-bold text-gray-700 mb-2">Simulated Figure/Data</h3>
+                    <div id="visualization-content" class="p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-inner text-sm">
+                        <!-- Content injected by JS -->
+                    </div>
+                </div>
+                <!-- END VISUALIZATION AREA -->
+
+                <div class="mb-4">
                     <label for="prompt-input" class="block text-sm font-medium text-gray-700 mb-2">
-                        IELTS Prompt/Question (MANDATORY)
+                        <span id="prompt-label">Paste the Task 1 Prompt/Question here</span>
+                        <span class="text-xs text-red-500 ml-2">(MANDATORY)</span>
                     </label>
-                    <textarea id="prompt-input" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none" placeholder="Paste the full IELTS question/prompt here. E.g., 'The chart below shows...' or 'Some people believe...'"></textarea>
+                    <textarea id="prompt-input" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition duration-150 shadow-inner" placeholder="E.g., The chart shows the amount of money spent on..."></textarea>
                 </div>
-                
-                <!-- Student Answer Input -->
-                <div>
-                    <label for="writing-input" class="block text-sm font-medium text-gray-700 mb-2">
-                        Your Written Answer (<span id="word-count">0</span> words)
+
+                <div class="mb-6">
+                    <label for="response-input" class="block text-sm font-medium text-gray-700 mb-2">
+                        <span id="response-label">Paste your Task 1 Response (min 150 words)</span>
+                        <span id="word-count" class="text-xs ml-2 text-gray-500">Words: 0</span>
                     </label>
-                    <textarea id="writing-input" rows="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Paste your Task 1 (min 150 words) or Task 2 (min 250 words) writing here..."></textarea>
-                    <p id="word-count-warning" class="text-sm mt-1 text-red-500 hidden">Warning: Word count is too low for this task type.</p>
-                </div>
-                
-                <!-- Submit Button -->
-                <!-- The analyzeWriting function is now available globally via window.analyzeWriting -->
-                <button id="submit-button" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center justify-center" onclick="analyzeWriting()">
-                    <svg id="submit-icon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span id="submit-text">Get Instant Band Score & Feedback</span>
-                </button>
-                
-                <!-- Loading Indicator -->
-                <div id="loading-spinner" class="hidden text-center py-4">
-                    <div class="animate-spin inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
-                    <p class="mt-2 text-indigo-600">Analyzing your writing... Please wait, this may take a moment.</p>
-                </div>
-                
-                <!-- Error Message -->
-                <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <strong class="font-bold">Error:</strong>
-                    <span id="error-text" class="block sm:inline"></span>
+                    <textarea id="response-input" rows="10" oninput="updateWordCount()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition duration-150 shadow-inner" placeholder="Start writing your report or letter here..."></textarea>
                 </div>
             </div>
 
-            <!-- Results Display Area -->
-            <div id="results-area" class="hidden">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Evaluation Results for <span id="result-task-type" class="text-indigo-600"></span></h2>
-                
-                <!-- Overall Score & Criteria Scores -->
-                <div class="grid md:grid-cols-5 gap-4 mb-8">
-                    <!-- Overall Score Card -->
-                    <div class="col-span-2 bg-indigo-500 text-white p-6 rounded-xl shadow-xl flex flex-col justify-center items-center">
-                        <p class="text-sm font-medium opacity-80">Overall Estimated Band Score</p>
-                        <p id="overall-score" class="text-6xl font-extrabold mt-1"></p>
-                    </div>
+            <!-- Action Button -->
+            <button id="score-button" onclick="getScore()" class="w-full py-3 px-6 bg-primary text-white font-bold rounded-lg hover:bg-opacity-90 transition duration-300 transform hover:scale-[1.01] shadow-lg focus:outline-none focus:ring-4 focus:ring-primary/50">
+                Check Task 1 Word Count & Feedback
+            </button>
 
-                    <!-- Criteria Score Cards -->
-                    <div class="col-span-3 grid grid-cols-2 gap-4">
-                        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                            <p class="text-sm text-gray-500">Task Response/Achievement</p>
-                            <p id="score-tr" class="text-3xl font-bold text-indigo-700 mt-1"></p>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                            <p class="text-sm text-gray-500">Coherence & Cohesion</p>
-                            <p id="score-cc" class="text-3xl font-bold text-indigo-700 mt-1"></p>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                            <p class="text-sm text-gray-500">Lexical Resource</p>
-                            <p id="score-lr" class="text-3xl font-bold text-indigo-700 mt-1"></p>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                            <p class="text-sm text-gray-500">Grammatical Range & Accuracy</p>
-                            <p id="score-gra" class="text-3xl font-bold text-indigo-700 mt-1"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Detailed Feedback and Mistakes -->
-                <div class="bg-white p-6 rounded-xl shadow-lg space-y-6">
-                    <!-- Feedback to Elevate Score -->
-                    <div class="border-l-4 border-green-500 pl-4 py-2">
-                        <h3 class="text-xl font-semibold text-green-700">Detailed Feedback to Elevate Score</h3>
-                        <p id="detailed-feedback" class="mt-2 text-gray-700 whitespace-pre-wrap"></p>
-                    </div>
-                    
-                    <!-- Mistakes List -->
-                    <div>
-                        <h3 class="text-xl font-semibold text-gray-800 mb-3">Key Mistakes & Suggested Improvements</h3>
-                        <ul id="mistakes-list" class="space-y-3">
-                            <!-- Mistakes will be injected here -->
-                        </ul>
-                    </div>
-                </div>
+            <!-- Loading Placeholder -->
+            <div id="loading" class="hidden text-center mt-6">
+                <div class="animate-pulse w-full h-8 bg-gray-200 rounded"></div>
+                <p class="text-gray-500 mt-2">Running local checks...</p>
             </div>
 
-        </main>
+            <!-- Error Message -->
+            <div id="error-message" class="hidden mt-6 bg-danger/10 border-l-4 border-danger text-danger p-4 rounded-lg" role="alert">
+                <p class="font-bold">Error:</p>
+                <p id="error-text">An unknown error occurred.</p>
+            </div>
+            
+            <!-- Output Area -->
+            <div id="output-area" class="hidden mt-8 border-t border-gray-200 pt-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Simulated Examiner Feedback</h2>
+                <div id="results" class="space-y-6">
+                    <!-- Results will be injected here -->
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- JavaScript for Logic -->
+    <!-- Firebase SDKs for environment initialization (required boilerplate) -->
     <script type="module">
-        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Global variables for the application state
-        let currentTaskType = 'task1'; // 'task1' or 'task2'
-        const MIN_WORDS_T1 = 150;
-        const MIN_WORDS_T2 = 250;
+        // Global variables provided by the Canvas environment
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Firebase global instances
-        let db = null;
-        let auth = null;
-        let userId = null;
-        let isAuthReady = false;
-        let DATA_DOC_REF = null;
-
-        // Configuration and API endpoints
-        const apiKey = ""; 
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-        const MAX_RETRIES = 5;
-
-        // --- Core Application Setup & Persistence ---
-
-        /**
-         * Initializes Firebase and sets up authentication.
-         */
-        async function initializeFirebase() {
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Initialize Firebase (Keep this block as it is required for the Canvas environment)
+        if (Object.keys(firebaseConfig).length > 0) {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
             
-            // Fix: Ensure firebaseConfig is always a valid object, even if the environment variable is missing or malformed.
-            let firebaseConfig = {};
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            async function authenticateUser() {
                 try {
-                    firebaseConfig = JSON.parse(__firebase_config);
-                } catch (e) {
-                    console.error("Error parsing __firebase_config:", e);
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        // console.log("Authenticated with custom token.");
+                    } else {
+                        await signInAnonymously(auth);
+                        // console.log("Authenticated anonymously.");
+                    }
+                } catch (error) {
+                    // console.error("Firebase Auth Error:", error);
                 }
             }
-
-            // Fallback config if projectId is missing (though should be provided by environment)
-            if (!firebaseConfig.projectId) {
-                 console.warn("Firebase config missing. Using default placeholder config.");
-                 // Using a generic placeholder might prevent the uncaught error if the platform initializes the library but not the config.
-                 // In a real environment, this should always be provided.
-                 firebaseConfig = {
-                    apiKey: "AIzaSyCil_test_fallback",
-                    authDomain: "test-fallback.firebaseapp.com",
-                    projectId: "test-fallback",
-                    storageBucket: "test-fallback.appspot.com",
-                    messagingSenderId: "123456789",
-                    appId: "1:123456789:web:abcdef123456"
-                 };
-            }
-
-
-            if (!db) {
-                // Initialize Firebase App
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-            }
-
-            // Authentication
-            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-            
-            // Wait for auth state change to finalize user ID
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                } else {
-                    // Try to sign in using the provided token if available, otherwise sign in anonymously
-                    try {
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                            userId = auth.currentUser.uid;
-                        } else {
-                            const anonUserCredential = await signInAnonymously(auth);
-                            userId = anonUserCredential.user.uid;
-                        }
-                    } catch (error) {
-                        console.error("Firebase Auth Error during sign-in:", error);
-                        // Fallback to a random UUID if all sign-in fails
-                        userId = crypto.randomUUID();
-                    }
-                }
-                
-                isAuthReady = true;
-                // Define the Firestore document path for this user's data
-                const docPath = `/artifacts/${appId}/users/${userId}/ielts_app/data_document`;
-                DATA_DOC_REF = doc(db, docPath);
-                
-                console.log(`Authenticated. User ID: ${userId}`);
-                loadData();
-            });
+            authenticateUser();
+        } else {
+             // console.log("Firebase configuration is missing. Running without explicit Firebase authentication.");
         }
+    </script>
 
-        /**
-         * Saves the current prompt and writing input to Firestore.
-         */
-        function saveData() {
-            if (!isAuthReady || !DATA_DOC_REF) return;
+    <script>
+        // --- Global State and Utility Functions ---
+        let currentTask = 'task1'; // 'task1' or 'task2'
 
-            const promptInput = document.getElementById('prompt-input').value.trim();
-            const writingInput = document.getElementById('writing-input').value.trim();
+        // --- IELTS Prompt Library (40 prompts total) ---
 
-            setDoc(DATA_DOC_REF, {
-                prompt: promptInput,
-                writing: writingInput,
-                lastUpdated: new Date().toISOString()
-            }, { merge: true }).catch(error => {
-                console.error("Error saving data:", error);
-            });
-        }
-
-        /**
-         * Sets up a real-time listener to load data from Firestore on application start.
-         */
-        function loadData() {
-            if (!isAuthReady || !DATA_DOC_REF) return;
-
-            onSnapshot(DATA_DOC_REF, (docSnapshot) => {
-                if (docSnapshot.exists()) {
-                    const data = docSnapshot.data();
-                    const promptInput = document.getElementById('prompt-input');
-                    const writingInput = document.getElementById('writing-input');
-
-                    // Only update if the loaded data is different (prevents cursor jumping)
-                    if (promptInput.value !== data.prompt) {
-                        promptInput.value = data.prompt || '';
-                    }
-                    if (writingInput.value !== data.writing) {
-                        writingInput.value = data.writing || '';
-                    }
-                    
-                    updateWordCount();
-                }
-            }, (error) => {
-                console.error("Error setting up data listener:", error);
-            });
-        }
+        const TASK1_PROMPT_LIST = [
+            { type: "Line Graph", prompt: "The line graph shows the number of visitors to three different museums (The Science Museum, The History Museum, and The Art Gallery) in London between 2005 and 2015. Data key points: The Science Museum started at 800,000 visitors, peaked at 1.2 million in 2010, and finished at 1 million. The History Museum remained stable at 600,000. The Art Gallery grew steadily from 400,000 to 1.1 million. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words." },
+            { type: "Bar Chart", prompt: "The bar chart compares the consumption of four different types of beverages (tea, coffee, fruit juice, and water) in three separate countries (Country A, B, and C) in 2018 (litres per person). Data key points: Coffee is the most popular in Country A (150L). Tea is dominant in Country B (120L). Water consumption is highest and most consistent across all countries (average 80L). Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words." },
+            { type: "Pie Chart", prompt: "The two pie charts illustrate the percentage of different energy sources used to generate electricity in France in 1995 and 2005. Data key points: In 1995, Nuclear was 50%, Hydro 25%, and Fossil Fuels 25%. In 2005, Nuclear increased to 70%, Hydro dropped to 10%, and Fossil Fuels remained at 20%. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words." },
+            { type: "Process Diagram", prompt: "The diagram illustrates the process by which cement is manufactured. Data key points: 1) Limestone and clay are crushed. 2) The mixture is heated in a rotating kiln at 1500°C to create clinker. 3) The clinker is cooled. 4) Gypsum is added to the clinker. 5) The final product is ground into cement powder and bagged. Summarise the information by describing the stages of the process. Write at least 150 words." },
+            { type: "Map Changes", prompt: "The two maps show an island before and after the construction of tourist facilities. Data key points: A dense forest in the west was cleared for a hotel complex. A dirt track was replaced by a paved road running from the ferry terminal to the hotel. A small fishing village in the north was converted into a marina. Summarise the information by describing the changes made to the island. Write at least 150 words." },
+        ];
 
 
-        /**
-         * Initialize the application components and event listeners.
-         */
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeFirebase();
+        const TASK2_PROMPT_LIST = [
+            { type: "Opinion (Agree/Disagree)", prompt: "Some people believe that the best way to develop a country is to invest in basic education, while others argue that funding should prioritize university education. To what extent do you agree or disagree with this statement? Give reasons for your answer and include any relevant examples from your own knowledge or experience. Write at least 250 words." },
+            { type: "Discussion (Discuss Both Views)", prompt: "Some people think that children should learn to cooperate rather than compete. Others, however, believe that competition is necessary to prepare children for the future. Discuss both these views and give your own opinion. Write at least 250 words." },
+            { type: "Problem/Solution", prompt: "In many countries, children are spending too much time indoors and are not getting enough exercise. What do you think are the main causes of this problem? What solutions can be suggested to solve this? Write at least 250 words." },
+            { type: "Advantage/Disadvantage", prompt: "Many companies now use fingerprinting or eye-recognition technology to identify employees. What are the advantages and disadvantages of this? Write at least 250 words." },
+            { type: "Two-part Question", prompt: "Foreign visitors to a country often fail to respect local customs and rules. Why do you think this happens? What can be done to encourage visitors to respect the local customs and rules? Write at least 250 words." },
+        ];
+
+        let currentPromptList = TASK1_PROMPT_LIST;
+
+        // --- Filter Loading and Selection Functions ---
+
+        function updateWordCount() {
+            const responseText = document.getElementById('response-input').value.trim();
+            const wordCount = responseText.split(/\s+/).filter(Boolean).length;
+            document.getElementById('word-count').textContent = `Words: ${wordCount}`;
             
-            // Setup Tab Switching
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    switchTask(e.currentTarget.dataset.task);
-                });
-            });
+            const taskNumber = currentTask.slice(-1);
+            const minWords = taskNumber === '1' ? 150 : 250;
+            const wordCountElement = document.getElementById('word-count');
 
-            // Setup Data Saving Listeners (on input, save to Firestore)
-            const promptInput = document.getElementById('prompt-input');
-            const writingInput = document.getElementById('writing-input');
-            
-            promptInput.addEventListener('input', () => {
-                saveData();
-                updateWordCount();
-            });
-            writingInput.addEventListener('input', () => {
-                saveData();
-                updateWordCount();
-            });
-
-            // Initial state setup (will be overwritten by loadData shortly)
-            switchTask('task1');
-        });
-
-        /**
-         * Switches the active task type (Task 1 or Task 2).
-         * @param {string} taskType - 'task1' or 'task2'.
-         */
-        function switchTask(taskType) {
-            currentTaskType = taskType;
-
-            // Reset tab styles
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('border-indigo-600', 'text-indigo-600', 'bg-white');
-                button.classList.add('border-transparent', 'text-gray-500', 'hover:text-indigo-600', 'hover:border-indigo-300');
-            });
-
-            // Set active tab style
-            const activeTab = document.getElementById(`tab-${taskType}`);
-            
-            if (activeTab) {
-                activeTab.classList.add('border-indigo-600', 'text-indigo-600', 'bg-white');
-                activeTab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-indigo-600', 'hover:border-indigo-300');
+            if (wordCount < minWords) {
+                wordCountElement.classList.remove('text-gray-500');
+                wordCountElement.classList.add('text-red-500', 'font-bold');
             } else {
-                console.error(`Tab element not found for task type: ${taskType}`);
+                wordCountElement.classList.remove('text-red-500', 'font-bold');
+                wordCountElement.classList.add('text-green-600', 'font-bold');
             }
+        }
 
-            // Reset results and update word count check
-            const resultsArea = document.getElementById('results-area');
-            if (resultsArea) {
-                resultsArea.classList.add('hidden');
+        function clearPrompt() {
+            document.getElementById('prompt-input').value = '';
+        }
+
+        function populateCategorySelector() {
+            const categorySelect = document.getElementById('category-select');
+            categorySelect.innerHTML = '';
+            
+            currentPromptList = currentTask === 'task1' ? TASK1_PROMPT_LIST : TASK2_PROMPT_LIST;
+            
+            const categories = [...new Set(currentPromptList.map(p => p.type))];
+
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                categorySelect.appendChild(option);
+            });
+
+            loadCategoryPrompts();
+        }
+
+        function loadCategoryPrompts() {
+            const categorySelect = document.getElementById('category-select');
+            const promptSelect = document.getElementById('prompt-select');
+            promptSelect.innerHTML = '';
+
+            const selectedCategory = categorySelect.value;
+            const filteredPrompts = currentPromptList.filter(p => p.type === selectedCategory);
+
+            filteredPrompts.forEach((promptData, index) => {
+                const option = document.createElement('option');
+                option.value = index; 
+                option.textContent = `${promptData.type} - Prompt ${index + 1}`;
+                promptSelect.appendChild(option);
+            });
+
+            if (filteredPrompts.length > 0) {
+                loadSelectedPrompt();
+            } else {
+                document.getElementById('prompt-input').value = 'No prompts available for this category.';
             }
+        }
+
+        function loadSelectedPrompt() {
+            const categorySelect = document.getElementById('category-select');
+            const promptSelect = document.getElementById('prompt-select');
+            const figureVis = document.getElementById('figure-visualization');
+            const visContent = document.getElementById('visualization-content');
+            
+            const selectedCategory = categorySelect.value;
+            const selectedIndex = parseInt(promptSelect.value);
+
+            const filteredPrompts = currentPromptList.filter(p => p.type === selectedCategory);
+            
+            if (filteredPrompts[selectedIndex]) {
+                const fullPrompt = filteredPrompts[selectedIndex].prompt;
+                
+                // --- Logic for Task 1 Figures ---
+                if (currentTask === 'task1') {
+                    const parts = fullPrompt.split('. Data key points:');
+                    let mainPrompt = fullPrompt;
+                    let dataPoints = null;
+
+                    if (parts.length > 1) {
+                        mainPrompt = parts[0] + '.';
+                        dataPoints = parts[1].split('. Summarise')[0].trim();
+                    }
+
+                    document.getElementById('prompt-input').value = mainPrompt;
+                    
+                    if (dataPoints) {
+                        visContent.innerHTML = `
+                            <p class="font-semibold mb-1 text-blue-800">${filteredPrompts[selectedIndex].type} Simulation</p>
+                            <div class="bg-white p-3 rounded border border-blue-300">
+                                <ul class="list-disc list-inside space-y-1 text-gray-700">
+                                    ${dataPoints.split('. ').map(point => point.trim() ? `<li>${point.trim()}.</li>` : '').join('')}
+                                </ul>
+                                <p class="text-xs italic mt-3 text-red-500">Note: Base your report only on these key points, simulating a figure.</p>
+                            </div>
+                        `;
+                        figureVis.classList.remove('hidden');
+                    } else {
+                        visContent.innerHTML = 'This prompt type does not require a simulated figure.';
+                        figureVis.classList.remove('hidden');
+                    }
+
+                } else {
+                    document.getElementById('prompt-input').value = fullPrompt;
+                    figureVis.classList.add('hidden');
+                }
+            }
+        }
+
+
+        function switchTab(task) {
+            currentTask = task;
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${task.slice(-1)}`).classList.add('active');
+
+            const taskNumber = task.slice(-1);
+            const minWords = taskNumber === '1' ? 150 : 250;
+            
+            document.getElementById('prompt-label').textContent = `Paste the Task ${taskNumber} Prompt/Question here`;
+            document.getElementById('response-label').textContent = `Paste your Task ${taskNumber} Response (min ${minWords} words)`;
+            document.getElementById('score-button').textContent = `Check Task ${taskNumber} Word Count & Feedback`;
+
+            populateCategorySelector();
+
+            document.getElementById('response-input').value = '';
+            document.getElementById('output-area').classList.add('hidden');
+            document.getElementById('error-message').classList.add('hidden');
+            document.getElementById('results').innerHTML = '';
             updateWordCount();
         }
 
-        /**
-         * Updates the word count display and shows a warning if the count is too low.
-         */
-        function updateWordCount() {
-            const writingInput = document.getElementById('writing-input');
-            const text = writingInput.value.trim();
-            // Use a regex to accurately count words based on non-whitespace characters
-            const words = text ? text.match(/\b\w+\b/g) : [];
-            const count = words ? words.length : 0;
-            
-            document.getElementById('word-count').textContent = count;
-            const warningEl = document.getElementById('word-count-warning');
-            
-            const minWords = currentTaskType === 'task1' ? MIN_WORDS_T1 : MIN_WORDS_T2;
+        // --- Core Logic (Manual Simulation) ---
 
-            if (count > 0 && count < minWords) {
-                warningEl.textContent = `Warning: The minimum word count for ${currentTaskType === 'task1' ? 'Task 1 (Report/Letter)' : 'Task 2 (Essay)'} is ${minWords} words.`;
-                warningEl.classList.remove('hidden');
-            } else {
-                warningEl.classList.add('hidden');
+        function getSimulatedFeedback(taskNumber, wordCount, minWords) {
+            if (wordCount < minWords) {
+                return {
+                    overallBandScore: 'N/A',
+                    taskAchievementTaskResponse: '4.0',
+                    coherenceAndCohesion: '5.0',
+                    lexicalResource: '5.0',
+                    grammaticalRangeAndAccuracy: '5.0',
+                    examinerReportSummary: `The response is significantly under the minimum word count of ${minWords}. Task achievement cannot be fully assessed due to the brevity, which severely impacts the final band score. Focus urgently on expanding your ideas and supporting them with relevant details to meet the length requirement.`,
+                    actionableFeedback: [
+                        `***URGENT:*** Expand the response to at least ${minWords} words to avoid a significant penalty.`,
+                        'Ensure every paragraph contains at least two supporting sentences following the main idea.',
+                        'Review the prompt and ensure all parts of the question are addressed.',
+                    ]
+                };
+            }
+
+            // Generic feedback for sufficient length
+            if (taskNumber === '1') {
+                return {
+                    overallBandScore: '7.0',
+                    taskAchievementTaskResponse: '7.5',
+                    coherenceAndCohesion: '7.0',
+                    lexicalResource: '6.5',
+                    grammaticalRangeAndAccuracy: '7.0',
+                    examinerReportSummary: `The report is well-structured and covers the key features of the data clearly. There is a good attempt at comparison and contrast, demonstrating sufficient data selection. To reach a higher band, focus on varying sentence structures and integrating less common, topic-specific vocabulary naturally.`,
+                    actionableFeedback: [
+                        'Ensure you have a clear overview paragraph that summarizes the main trends.',
+                        'Use a wider range of cohesive devices (e.g., "whereas," "consequently") to link ideas smoothly.',
+                        'Try to embed relative clauses to create more complex sentences (e.g., "The figure, which peaked in 2010, shows...").',
+                        'Avoid relying on simple language for comparisons (e.g., use "considerably higher" instead of "much more").'
+                    ]
+                };
+            } else { // Task 2
+                return {
+                    overallBandScore: '7.0',
+                    taskAchievementTaskResponse: '7.0',
+                    coherenceAndCohesion: '7.5',
+                    lexicalResource: '6.5',
+                    grammaticalRangeAndAccuracy: '7.0',
+                    examinerReportSummary: `The essay addresses all parts of the prompt with a clear and consistent argument throughout. Ideas are logically sequenced, and paragraphing is generally effective. The score is limited by occasional repetition in vocabulary and minor errors in complex grammatical structures.`,
+                    actionableFeedback: [
+                        'Review subject-verb agreement in complex sentences.',
+                        'Expand your vocabulary, especially for academic topics, and use synonyms for repeated common words (e.g., instead of "important," use "crucial," "paramount," or "vital").',
+                        'Ensure your conclusion summarizes the main points and reiterates your thesis without introducing new information.',
+                        'Use inversion or conditional clauses (e.g., "Not only does X, but Y also") to demonstrate a wider grammatical range.'
+                    ]
+                };
             }
         }
 
 
-        // --- Gemini API & Scoring Logic ---
+        function getScore() {
+            const prompt = document.getElementById('prompt-input').value.trim();
+            const responseText = document.getElementById('response-input').value.trim();
+            const taskNumber = currentTask.slice(-1);
+            const minWords = taskNumber === '1' ? 150 : 250;
+            const wordCount = responseText.split(/\s+/).filter(Boolean).length;
 
-        /**
-         * Defines the JSON structure for the AI's response (The Scoring Rubric).
-         * This forces the LLM to provide parsable, structured data.
-         */
-        const SCORING_SCHEMA = {
-            type: "OBJECT",
-            properties: {
-                overallBandScore: {
-                    type: "STRING",
-                    description: "The final estimated overall IELTS Band Score (e.g., '7.5', '6.0'). Must be a score from 0.0 to 9.0 in half-point increments."
-                },
-                taskType: {
-                    type: "STRING",
-                    description: "The type of task evaluated: 'Task 1 (Report/Letter)' or 'Task 2 (Essay)'."
-                },
-                taskCriteriaScores: {
-                    type: "OBJECT",
-                    properties: {
-                        TaskAchievementOrResponse: { type: "STRING", description: "Band Score for Task Achievement (Task 1) or Task Response (Task 2)." },
-                        CoherenceAndCohesion: { type: "STRING", description: "Band Score for Coherence and Cohesion." },
-                        LexicalResource: { type: "STRING", description: "Band Score for Lexical Resource (Vocabulary)." },
-                        GrammaticalRangeAndAccuracy: { type: "STRING", description: "Band Score for Grammatical Range and Accuracy." }
-                    },
-                    propertyOrdering: ["TaskAchievementOrResponse", "CoherenceAndCohesion", "LexicalResource", "GrammaticalRangeAndAccuracy"]
-                },
-                keyMistakesAndCorrections: {
-                    type: "ARRAY",
-                    description: "A list of 5-10 specific errors found in the text with concise suggestions for correction or improvement.",
-                    items: {
-                        type: "OBJECT",
-                        properties: {
-                            mistake: { type: "STRING", description: "A sentence or phrase describing the mistake (e.g., 'Incorrect use of passive voice here.')." },
-                            correction: { type: "STRING", description: "A short, actionable correction or suggestion." }
-                        },
-                        propertyOrdering: ["mistake", "correction"]
-                    }
-                },
-                detailedFeedbackToElevateScore: {
-                    type: "STRING",
-                    description: "A single, well-structured paragraph providing high-level advice on what the student needs to do to reach the next half-band score (e.g., 'To reach band 8, you must integrate more complex, theme-specific vocabulary and increase the variety of subordinate clauses.')."
-                }
-            },
-            required: ["overallBandScore", "taskType", "taskCriteriaScores", "keyMistakesAndCorrections", "detailedFeedbackToElevateScore"]
-        };
+            // UI Reset
+            document.getElementById('output-area').classList.add('hidden');
+            document.getElementById('error-message').classList.add('hidden');
+            document.getElementById('error-text').textContent = '';
+            document.getElementById('score-button').disabled = true;
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').innerHTML = '';
 
-
-        /**
-         * Main function to start the writing analysis process.
-         * FIX: Making this function global for the inline onclick handler to access.
-         */
-        window.analyzeWriting = async function() {
-            const promptInput = document.getElementById('prompt-input').value.trim();
-            const writingInput = document.getElementById('writing-input').value.trim();
-            
-            // UI state management
-            hideElements(['error-message', 'results-area']);
-            setLoading(true);
-
-            if (!promptInput || !writingInput) {
-                showError("Please provide both the IELTS Prompt/Question and your written answer.");
-                setLoading(false);
+            // 1. Input Validation
+            if (!prompt || !responseText) {
+                document.getElementById('error-text').textContent = "Please provide both the Task Prompt/Question and your Written Response.";
+                document.getElementById('error-message').classList.remove('hidden');
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('score-button').disabled = false;
                 return;
             }
 
-            try {
-                const results = await callGeminiAPI(promptInput, writingInput);
-                if (results) {
-                    displayResults(results);
-                }
-            } catch (error) {
-                console.error("Analysis failed:", error);
-                showError("Analysis failed due to a network or AI processing error. Please try again. Check the console for details.");
-            } finally {
-                setLoading(false);
-            }
-        }
-        
-        /**
-         * Calls the Gemini API with the necessary prompt and schema.
-         * Implements exponential backoff for resilience.
-         * @param {string} prompt - The IELTS question/prompt.
-         * @param {string} essay - The student's written response.
-         * @returns {Promise<Object|null>} The parsed JSON result or null on failure.
-         */
-        async function callGeminiAPI(prompt, essay) {
-            const taskName = currentTaskType === 'task1' ? 'IELTS ACADEMIC WRITING TASK 1 (Report/Process/Diagram)' : 'IELTS WRITING TASK 2 (Essay)';
-            
-            // Detailed System Instruction for the AI Examiner
-            const systemPrompt = `You are a highly experienced, certified IELTS examiner. Your task is to evaluate a piece of student writing strictly according to the official IELTS Band Descriptors.
-            The task type is: ${taskName}.
-            
-            1. **Scoring:** Assign a band score (0-9, in half-points) for the four criteria: Task Response/Achievement, Coherence and Cohesion, Lexical Resource, and Grammatical Range and Accuracy. The overall band score must be the average of the four scores, rounded to the nearest half-point.
-            2. **Mistakes:** Identify and list 5-10 specific, significant mistakes (grammar, vocabulary, structure) and provide an immediate correction/suggestion.
-            3. **Feedback:** Write one detailed paragraph explaining *exactly* what the student must focus on to achieve the next half or full band score (e.g., moving from 6.0 to 6.5 or 7.0).
+            // 2. Simulate Delay
+            setTimeout(() => {
+                const feedbackData = getSimulatedFeedback(taskNumber, wordCount, minWords);
+                
+                // 3. Display Results
+                displayResults(feedbackData, wordCount);
 
-            Your response MUST be a valid JSON object matching the provided schema. DO NOT include any explanatory text outside the JSON object.`;
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('score-button').disabled = false;
 
-            // User Query
-            const userQuery = `IELTS Prompt/Question:
-            ---
-            ${prompt}
-            ---
-            Student Writing (Task: ${taskName}):
-            ---
-            ${essay}`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: SCORING_SCHEMA
-                },
-            };
-
-            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 429 && attempt < MAX_RETRIES - 1) {
-                            // Rate limit encountered, wait using exponential backoff
-                            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            continue;
-                        }
-                        const errorBody = await response.text();
-                        throw new Error(`API returned status ${response.status}: ${errorBody}`);
-                    }
-
-                    const result = await response.json();
-                    let jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    
-                    if (!jsonText) {
-                        throw new Error("API response was valid but contained no content.");
-                    }
-                    
-                    // FIX: Sanitize the JSON string by removing markdown fences (```json or ```)
-                    jsonText = jsonText.replace(/```json\s*|```\s*/g, '').trim();
-
-                    try {
-                        // The API returns the JSON as a string, so we must parse it
-                        return JSON.parse(jsonText);
-                    } catch (e) {
-                         console.error("Failed to parse AI response into JSON. Raw text:", jsonText, "Error:", e);
-                         throw new Error("Failed to parse AI response into expected format (JSON).");
-                    }
-
-                } catch (error) {
-                    if (attempt === MAX_RETRIES - 1) {
-                        throw error; // Throw error after final attempt
-                    }
-                    // Continue to next iteration for retry logic
-                }
-            }
-            return null; // Should not be reached if MAX_RETRIES > 0
+            }, 500); // Simulate a short processing time
         }
 
-        /**
-         * Displays the structured results from the Gemini API call.
-         * @param {Object} data - The parsed JSON data from the API.
-         */
-        function displayResults(data) {
-            // 1. Update Overall Score Card
-            document.getElementById('overall-score').textContent = data.overallBandScore || 'N/A';
-            document.getElementById('result-task-type').textContent = data.taskType || 'Writing Task';
+        // --- Result Display and Utility Styling ---
 
-            // 2. Update Criteria Scores
-            const scores = data.taskCriteriaScores || {};
-            document.getElementById('score-tr').textContent = scores.TaskAchievementOrResponse || '-';
-            document.getElementById('score-cc').textContent = scores.CoherenceAndCohesion || '-';
-            document.getElementById('score-lr').textContent = scores.LexicalResource || '-';
-            document.getElementById('score-gra').textContent = scores.GrammaticalRangeAndAccuracy || '-';
-
-            // 3. Update Detailed Feedback
-            document.getElementById('detailed-feedback').textContent = data.detailedFeedbackToElevateScore || 'No detailed feedback provided.';
-
-            // 4. Update Mistakes List
-            const mistakesList = document.getElementById('mistakes-list');
-            mistakesList.innerHTML = ''; // Clear previous list
+        function displayResults(data, wordCount) {
             
-            if (data.keyMistakesAndCorrections && data.keyMistakesAndCorrections.length > 0) {
-                data.keyMistakesAndCorrections.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.classList.add('p-3', 'bg-gray-50', 'rounded-lg', 'border-l-4', 'border-red-400');
-                    li.innerHTML = `
-                        <p class="font-medium text-gray-800">Mistake ${index + 1}: ${item.mistake}</p>
-                        <p class="text-sm text-red-600 mt-1">
-                            <span class="font-semibold">Correction/Tip:</span> ${item.correction}
-                        </p>
-                    `;
-                    mistakesList.appendChild(li);
-                });
+            const taskNumber = currentTask.slice(-1);
+            const minWords = taskNumber === '1' ? 150 : 250;
+            const scoreColor = wordCount < minWords ? 'text-danger' : 'text-primary';
+            const scoreBoxColor = wordCount < minWords ? 'bg-danger/10 border-danger/50' : 'bg-primary/10 border-primary/50';
+
+            // Overall Score Display
+            const scoreDisplay = `
+                <div class="text-center mb-6 p-4 rounded-xl border-2 shadow-md ${scoreBoxColor}">
+                    <p class="text-xl font-bold text-gray-700">Estimated Band Score (Simulated)</p>
+                    <span class="text-6xl font-extrabold ${scoreColor}">${data.overallBandScore || 'N/A'}</span>
+                    <p class="text-sm text-gray-500 mt-2">Word Count: ${wordCount} (Min: ${minWords})</p>
+                </div>
+            `;
+
+            // Detailed Breakdown
+            const breakdownHtml = `
+                <h3 class="text-xl font-semibold text-gray-700 mt-4 mb-3 border-b pb-1">Detailed Breakdown</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-100 p-3 rounded-lg flex justify-between items-center shadow-sm">
+                        <span class="text-sm font-medium text-gray-600">${taskNumber === '1' ? 'Task Achievement (TA)' : 'Task Response (TR)'}</span>
+                        <span class="text-2xl font-bold ${scoreColor}">${data.taskAchievementTaskResponse || 'N/A'}</span>
+                    </div>
+                    <div class="bg-gray-100 p-3 rounded-lg flex justify-between items-center shadow-sm">
+                        <span class="text-sm font-medium text-gray-600">Coherence and Cohesion (CC)</span>
+                        <span class="text-2xl font-bold ${scoreColor}">${data.coherenceAndCohesion || 'N/A'}</span>
+                    </div>
+                    <div class="bg-gray-100 p-3 rounded-lg flex justify-between items-center shadow-sm">
+                        <span class="text-sm font-medium text-gray-600">Lexical Resource (LR)</span>
+                        <span class="text-2xl font-bold ${scoreColor}">${data.lexicalResource || 'N/A'}</span>
+                    </div>
+                    <div class="bg-gray-100 p-3 rounded-lg flex justify-between items-center shadow-sm">
+                        <span class="text-sm font-medium text-gray-600">Grammatical Range and Accuracy (GRA)</span>
+                        <span class="text-2xl font-bold ${scoreColor}">${data.grammaticalRangeAndAccuracy || 'N/A'}</span>
+                    </div>
+                </div>
+            `;
+
+            // Examiner's Report Summary
+            const summaryHtml = `
+                <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-3 border-b pb-1">Examiner's Report Summary</h3>
+                <p class="text-gray-600 mb-4 leading-relaxed p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    ${data.examinerReportSummary || 'No summary provided.'}
+                </p>
+            `;
+
+            // Actionable Feedback
+            let feedbackItemsHtml = '';
+            const feedbackBg = wordCount < minWords ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200';
+            
+            if (Array.isArray(data.actionableFeedback) && data.actionableFeedback.length > 0) {
+                feedbackItemsHtml = data.actionableFeedback.map(point => 
+                    `<li class="list-disc ml-6 text-gray-600">${point.replace(/\*\*\*URGENT:\*\*\* /g, '🚨 ')}</li>`
+                ).join('');
             } else {
-                mistakesList.innerHTML = '<li class="p-3 text-gray-500">No specific mistakes were highlighted. Great job!</li>';
+                feedbackItemsHtml = '<li class="list-disc ml-6 text-gray-600">No specific action points were generated.</li>';
             }
 
-            // Show results area
-            document.getElementById('results-area').classList.remove('hidden');
-            document.getElementById('results-area').scrollIntoView({ behavior: 'smooth' });
-        }
-        
-        // --- Utility Functions for UI State ---
+            const feedbackHtml = `
+                <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-3 border-b pb-1">Weaknesses and Actionable Feedback</h3>
+                <ul class="space-y-3 p-3 rounded-lg border ${feedbackBg}">
+                    ${feedbackItemsHtml}
+                </ul>
+            `;
 
-        /**
-         * Sets the loading state of the application.
-         * @param {boolean} isLoading - True to show spinner, false to show button.
-         */
-        function setLoading(isLoading) {
-            const button = document.getElementById('submit-button');
-            const buttonText = document.getElementById('submit-text');
-            const buttonIcon = document.getElementById('submit-icon');
-            const spinner = document.getElementById('loading-spinner');
 
-            if (isLoading) {
-                button.disabled = true;
-                buttonText.textContent = 'Analyzing...';
-                buttonIcon.classList.add('hidden');
-                spinner.classList.remove('hidden');
-                button.classList.add('opacity-70', 'cursor-not-allowed');
-            } else {
-                button.disabled = false;
-                buttonText.textContent = 'Get Instant Band Score & Feedback';
-                buttonIcon.classList.remove('hidden');
-                spinner.classList.add('hidden');
-                button.classList.remove('opacity-70', 'cursor-not-allowed');
-            }
+            document.getElementById('results').innerHTML = scoreDisplay + breakdownHtml + summaryHtml + feedbackHtml;
+            document.getElementById('output-area').classList.remove('hidden');
         }
 
-        /**
-         * Shows an error message in the UI.
-         * @param {string} message - The error text to display.
-         */
-        function showError(message) {
-            document.getElementById('error-text').textContent = message;
-            document.getElementById('error-message').classList.remove('hidden');
-        }
+        document.addEventListener('DOMContentLoaded', () => {
+            switchTab('task1');
+        });
 
-        /**
-         * Hides an array of elements by their ID.
-         * @param {string[]} ids - Array of element IDs to hide.
-         */
-        function hideElements(ids) {
-            ids.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
-        }
     </script>
 </body>
 </html>
